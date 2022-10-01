@@ -1,84 +1,103 @@
 # p2p
 
 ```
+/*
+   Project Title: p2p
+   Author: zainmfd
+   Date: 01/10/2022
+   Time: 1:10 PM
+   Last Update:01/10/2022
+*/
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
 #include <Wire.h>
-#include <MPU6050.h>
+#include <SD.h>
+File sdcard_file;
+Adafruit_MPU6050 mpu;
 
-MPU6050 mpu;
-
-void setup() 
-{
+void setup(void) {
   Serial.begin(115200);
+  if (!mpu.begin()) {
+    Serial.println("Failed to find MPU6050 chip");
+    while (1) {
+      delay(10);
+    }
+  }
+  Serial.println("MPU6050 Found!");
+  mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+  mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+  delay(100);
 
-  Serial.println("Initialize MPU6050");
-
-  while(!mpu.begin(MPU6050_SCALE_2000DPS, MPU6050_RANGE_2G))
-  {
-    Serial.println("Could not find a valid MPU6050 sensor, check wiring!");
-    delay(500);
+  // SD Card Initialization
+  if (SD.begin()) {
+    Serial.println("SD card is ready to use.");
+  } else {
+    Serial.println("SD card initialization failed");
+    return;
+  }
+  Serial.println("Acc X (m/s^2) , Acc Y ,Acc Z ,Gyro X (rad/s) ,Gyro Y,Gyro Z");
+  sdcard_file = SD.open("data.txt", FILE_WRITE);
+  if (sdcard_file) {
+    sdcard_file.print("Acc X (m/s^2)");
+    sdcard_file.print(", ");
+    sdcard_file.print("Acc Y");
+    sdcard_file.print(", ");
+    sdcard_file.print("Acc Z");
+    sdcard_file.print(", ");
+    sdcard_file.print("Gyro X (rad/s)");
+    sdcard_file.print(", ");
+    sdcard_file.print("Gyro Y");
+    sdcard_file.print(", ");
+    sdcard_file.print("Gyro Z");
+    sdcard_file.println(" ");
+    sdcard_file.close();  // close the file
+  }
+  // if the file didn't open, print an error:
+  else {
+    Serial.println("error opening data.txt");
   }
 
-  
-  checkSettings();
 }
 
-void checkSettings()
-{
-  Serial.println();
-  
-  Serial.print(" * Sleep Mode:            ");
-  Serial.println(mpu.getSleepEnabled() ? "Enabled" : "Disabled");
-  
-  Serial.print(" * Clock Source:          ");
-  switch(mpu.getClockSource())
-  {
-    case MPU6050_CLOCK_KEEP_RESET:     Serial.println("Stops the clock and keeps the timing generator in reset"); break;
-    case MPU6050_CLOCK_EXTERNAL_19MHZ: Serial.println("PLL with external 19.2MHz reference"); break;
-    case MPU6050_CLOCK_EXTERNAL_32KHZ: Serial.println("PLL with external 32.768kHz reference"); break;
-    case MPU6050_CLOCK_PLL_ZGYRO:      Serial.println("PLL with Z axis gyroscope reference"); break;
-    case MPU6050_CLOCK_PLL_YGYRO:      Serial.println("PLL with Y axis gyroscope reference"); break;
-    case MPU6050_CLOCK_PLL_XGYRO:      Serial.println("PLL with X axis gyroscope reference"); break;
-    case MPU6050_CLOCK_INTERNAL_8MHZ:  Serial.println("Internal 8MHz oscillator"); break;
+void loop() {
+  sensors_event_t a, g, temp;
+  mpu.getEvent(&a, &g, &temp);
+
+  Serial.print(a.acceleration.x);
+  Serial.print(",");
+  Serial.print(a.acceleration.y);
+  Serial.print(",");
+  Serial.print(a.acceleration.z);
+  Serial.print(",");
+
+  Serial.print(g.gyro.x);
+  Serial.print(",");
+  Serial.print(g.gyro.y);
+  Serial.print(",");
+  Serial.print(g.gyro.z);
+  Serial.println("");
+  //Saving data into SD card
+  sdcard_file = SD.open("data.txt", FILE_WRITE);
+  if (sdcard_file) {
+    sdcard_file.print(a.acceleration.x);
+    sdcard_file.print(",");
+    sdcard_file.print(a.acceleration.y);
+    sdcard_file.print(",");
+    sdcard_file.print(a.acceleration.z);
+    sdcard_file.print(",");
+    sdcard_file.print(g.gyro.x);
+    sdcard_file.print(",");
+    sdcard_file.print(g.gyro.y);
+    sdcard_file.print(",");
+    sdcard_file.println(g.gyro.z);
+    sdcard_file.close();  // close the file
   }
-  
-  Serial.print(" * Accelerometer:         ");
-  switch(mpu.getRange())
-  {
-    case MPU6050_RANGE_16G:            Serial.println("+/- 16 g"); break;
-    case MPU6050_RANGE_8G:             Serial.println("+/- 8 g"); break;
-    case MPU6050_RANGE_4G:             Serial.println("+/- 4 g"); break;
-    case MPU6050_RANGE_2G:             Serial.println("+/- 2 g"); break;
-  }  
-
-  Serial.print(" * Accelerometer offsets: ");
-  Serial.print(mpu.getAccelOffsetX());
-  Serial.print(" / ");
-  Serial.print(mpu.getAccelOffsetY());
-  Serial.print(" / ");
-  Serial.println(mpu.getAccelOffsetZ());
-  
-  Serial.println();
+  // if the file didn't open, print an error:
+  else {
+    Serial.println("error opening test.txt");
+  }
+  delay(500);
 }
-
-void loop()
-{
-  Vector rawAccel = mpu.readRawAccel();
-  Vector normAccel = mpu.readNormalizeAccel();
-
-  Serial.print(" Xraw = ");
-  Serial.print(rawAccel.XAxis);
-  Serial.print(" Yraw = ");
-  Serial.print(rawAccel.YAxis);
-  Serial.print(" Zraw = ");
-
-  Serial.println(rawAccel.ZAxis);
-  Serial.print(" Xnorm = ");
-  Serial.print(normAccel.XAxis);
-  Serial.print(" Ynorm = ");
-  Serial.print(normAccel.YAxis);
-  Serial.print(" Znorm = ");
-  Serial.println(normAccel.ZAxis);
-  
-  delay(10);
 } 
 ```
